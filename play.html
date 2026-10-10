@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>摇一摇赛跑</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<style>
+:root{--bg:#0f1830;--gold:#ffc83d;--dim:#8c9abd}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+body{min-height:100vh;background:var(--bg);color:#f4f1e8;font-family:"PingFang SC","Noto Sans SC",sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;gap:14px}
+#who{font-size:44px;font-weight:900;color:var(--gold)}
+#msg{font-size:30px;font-weight:800}
+#big{font-size:110px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1}
+#rank{font-size:22px;color:#cfd8f0;min-height:30px}
+#perm{width:100%;max-width:320px;font-size:26px;font-weight:900;padding:20px;border-radius:14px;border:0;background:#2ecc71;color:#06260f;display:none}
+#tap{width:190px;height:190px;border-radius:50%;border:0;background:#2a3f78;color:#fff;font-size:18px;padding:0 14px;line-height:1.4;font-weight:800;touch-action:manipulation;user-select:none}
+#tap:active{background:var(--gold);color:#222}
+</style></head><body>
+<div id="who">连接中…</div>
+<div id="msg">请稍等…</div>
+<div id="big">0</div>
+<div id="rank"></div>
+<button id="perm">👉 先点我一下，开启摇一摇</button>
+<button id="tap">摇不动？点我也能跑</button>
+<script>
+const $=id=>document.getElementById(id);
+let cid;try{cid=localStorage.getItem('shake_cid');if(!cid){cid=(crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2)+Date.now().toString(36));localStorage.setItem('shake_cid',cid)}}catch(e){cid=Math.random().toString(36).slice(2)+Date.now().toString(36)}
+let me=null,myName='',phase='lobby',count=0,sent=0,tick=0;
+async function join(){
+  try{const r=await fetch('/join',{method:'POST',body:JSON.stringify({cid})}),d=await r.json();
+    me=d.id;myName=d.name;$('who').textContent=d.name;if(phase==='lobby')$('msg').textContent='已加入！等主持人说开始'}
+  catch(e){setTimeout(join,1500)}
+}
+join();
+if(window.DeviceMotionEvent&&typeof DeviceMotionEvent.requestPermission==='function'){   // 苹果手机需要点一下授权
+  $('perm').style.display='block';
+  $('perm').onclick=async()=>{try{if(await DeviceMotionEvent.requestPermission()==='granted')$('perm').style.display='none'}catch(e){}};
+}
+function hit(){if(phase!=='running')return;count++;$('big').textContent=count;navigator.vibrate&&navigator.vibrate(15)}
+$('tap').addEventListener('touchstart',e=>{e.preventDefault();hit()},{passive:false});
+$('tap').onclick=hit;
+let lx,ly,lz,lt=0;
+addEventListener('devicemotion',e=>{
+  const a=e.accelerationIncludingGravity;if(!a||phase!=='running')return;
+  if(lx!==undefined){const d=Math.abs(a.x-lx)+Math.abs(a.y-ly)+Math.abs(a.z-lz),n=Date.now();
+    if(d>22&&n-lt>90){lt=n;hit()}}
+  lx=a.x;ly=a.y;lz=a.z});
+new EventSource('/events').onmessage=e=>{
+  const s=JSON.parse(e.data);
+  if(phase!=='running'&&s.phase==='running'){count=0;sent=0;$('big').textContent=0;$('rank').textContent=''}
+  if(s.phase==='lobby'&&phase!=='lobby'){count=0;sent=0;$('big').textContent=0;$('rank').textContent=''}
+  phase=s.phase;
+  $('msg').textContent={lobby:me?'已加入！等主持人说开始':'请稍等…',countdown:'准备！'+s.cd,running:'用力摇！ '+s.left.toFixed(0)+' 秒',finished:'比赛结束'}[phase];
+  if(phase==='finished'&&me)fin();
+};
+async function fin(){
+  try{const d=await (await fetch('/me?id='+encodeURIComponent(me))).json();
+    if(!d.rank){join();return}
+    $('rank').textContent=`第 ${d.rank} 名（共 ${d.total} 人）`+(d.rank<=3?'  🎉 恭喜！请带着手机去领奖':'')}catch(e){}
+}
+setInterval(async()=>{
+  if(phase!=='running'||!me)return;
+  if(count!==sent){sent=count;try{const r=await fetch('/shake',{method:'POST',body:JSON.stringify({id:me,count}),keepalive:true});if(r.status===404)join()}catch(e){}}
+  if(++tick%5===0){try{const d=await (await fetch('/me?id='+encodeURIComponent(me))).json();if(d.rank)$('rank').textContent='现在第 '+d.rank+' 名'}catch(e){}}
+},200);
+</script></body></html>

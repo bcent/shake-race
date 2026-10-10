@@ -1,0 +1,13 @@
+# 放到 /etc/systemd/system/shake-race.service
+[Unit]
+Description=Shake Race
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/shake-race
+ExecStart=/usr/bin/node server.js
+Environment=HOST=127.0.0.1 PORT=3000 ADMIN_KEY=改成你的口令 DURATION=20
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

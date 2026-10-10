@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>麦霸摇一摇赛跑</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--bg:#0f1830;--lane:#18264a;--gold:#ffc83d;--ink:#f4f1e8;--dim:#8c9abd}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;background:var(--bg);color:var(--ink);font-family:"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;overflow:hidden}
+body{display:flex;flex-direction:column;padding:2.2vh 3vw;background:radial-gradient(ellipse at 50% -20%,#2a3f78 0,transparent 60%),var(--bg)}
+header{display:flex;justify-content:space-between;align-items:baseline}
+h1{font-size:3.6vh;font-weight:800;letter-spacing:.08em}
+#timer{font-size:6vh;font-weight:900;color:var(--gold);font-variant-numeric:tabular-nums}
+#sub{color:var(--dim);font-size:2.2vh;margin-top:.6vh}
+#lobby{flex:1;display:flex;align-items:center;justify-content:center;gap:6vw}
+#qr{background:#fff;padding:1.6vh;border-radius:1vh;min-width:30vh;min-height:30vh;display:flex;align-items:center;justify-content:center;color:#222;font-size:2vh;text-align:center}
+#lobby h2{font-size:7vh;font-weight:900;line-height:1.2}
+#lobby p{font-size:2.8vh;color:var(--dim);margin-top:2vh}
+#n{color:var(--gold);font-size:11vh;font-weight:900;font-variant-numeric:tabular-nums}
+#names{font-size:2.4vh;color:var(--ink);margin-top:1.5vh;max-width:50vw;line-height:1.6}
+#track{flex:1;display:none;flex-direction:column;gap:.9vh;margin-top:1.5vh;position:relative}
+.lane{flex:1;position:relative;background:var(--lane);border-radius:1vh;border-right:1vh solid var(--gold)}
+.lane:before{content:"";position:absolute;inset:50% 0 auto 0;border-top:.3vh dashed #ffffff22}
+.nm{position:absolute;left:1vw;top:50%;transform:translateY(-50%);font-size:2.6vh;font-weight:700;z-index:2;text-shadow:0 0 .6vh #000}
+.run{position:absolute;top:50%;left:0;font-size:5vh;transform:translate(0,-50%);transition:left .25s linear;z-index:3}
+.ct{position:absolute;right:1.5vw;top:50%;transform:translateY(-50%);font-size:3vh;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums}
+.fill{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#ffc83d00,#ffc83d33);border-radius:1vh;transition:width .25s linear}
+#cd{position:fixed;inset:0;display:none;align-items:center;justify-content:center;font-size:40vh;font-weight:900;color:var(--gold);background:#0f1830dd;z-index:9}
+#podium{display:none;gap:2vw;margin-top:1.5vh}
+.pod{flex:1;background:var(--lane);border-radius:1vh;padding:1.6vh 1.5vw;border-top:.8vh solid var(--gold)}
+.pod b{display:block;font-size:4.4vh}.pod span{font-size:2.4vh;color:var(--dim)}
+#ctl{position:fixed;left:1vw;bottom:1vh;display:none;gap:.6vw;opacity:.35;z-index:10}#ctl:hover{opacity:1}
+#ctl button,#ctl a{font:inherit;font-size:1.8vh;padding:.8vh 1.2vw;border-radius:.6vh;border:0;background:#fff;color:#111;text-decoration:none;cursor:pointer}
+</style></head><body>
+<header><div><h1>王家畈镇第五届乡村歌手麦霸争夺赛</h1><div id="sub">摇一摇赛跑 · 手机狂摇，麦克风冲向终点</div></div><div id="timer"></div></header>
+<div id="lobby"><div id="qr"><canvas id="qc"></canvas></div><div><h2>扫码加入<br>摇一摇赛跑</h2><p>已加入 <span id="n">0</span> 人</p><p id="url" style="font-size:2vh"></p><div id="names"></div></div></div>
+<div id="podium"></div>
+<div id="track"></div>
+<div id="cd"></div>
+<div id="ctl"><button onclick="adm('start')">开始(空格)</button><button onclick="adm('reset')">再来一轮(R)</button><button onclick="if(confirm('清空所有选手?'))adm('reset','&clear=1')">清空选手</button><a id="csv">导出成绩</a></div>
+<script src="/qr.js"></script>
+<script>
+const $=id=>document.getElementById(id), key=new URLSearchParams(location.search).get('key');
+const track=$('track');
+for(let i=0;i<10;i++)track.insertAdjacentHTML('beforeend','<div class="lane"><div class="fill"></div><div class="nm"></div><div class="run">🎤</div><div class="ct"></div></div>');
+const lanes=[...track.children];
+if(key){document.body.style.paddingBottom='6vh';$('ctl').style.display='flex';$('csv').href='/results.csv?key='+key}
+function adm(a,x=''){fetch(`/admin/${a}?key=${key}${x}`)}
+addEventListener('keydown',e=>{if(!key)return;if(e.code==='Space')adm('start');if(e.key==='r'||e.key==='R')adm('reset')});
+function drawQR(url){const m=qrMatrix(url),n=m.length,q=3,z=Math.floor(300/(n+2*q)),c=$('qc'),x=c.getContext('2d');
+c.width=c.height=(n+2*q)*z;x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.fillStyle='#000';
+for(let r=0;r<n;r++)for(let k=0;k<n;k++)if(m[r][k])x.fillRect((k+q)*z,(r+q)*z,z,z);$('url').textContent=url}
+if(location.hostname==='localhost'||location.hostname==='127.0.0.1')fetch('/info').then(r=>r.json()).then(d=>drawQR(d.urls[0]||location.origin+'/play'));
+else drawQR(location.origin+'/play');
+const medal=['🥇','🥈','🥉'];
+new EventSource('/events').onmessage=e=>{
+  const s=JSON.parse(e.data), lobby=s.phase==='lobby';
+  $('lobby').style.display=lobby?'flex':'none';
+  track.style.display=lobby?'none':'flex';
+  $('n').textContent=s.n;$('names').textContent=s.recent.join('  ');
+  $('cd').style.display=s.phase==='countdown'?'flex':'none';$('cd').textContent=s.cd;
+  $('timer').textContent=s.phase==='running'?s.left.toFixed(1)+' 秒':s.phase==='finished'?'比赛结束':'';
+  const lead=s.top[0]?s.top[0].count:0, scale=Math.max(60,lead*1.08);
+  lanes.forEach((l,i)=>{const p=s.top[i];l.style.visibility=p?'visible':'hidden';if(!p)return;
+    const pct=Math.min(1,p.count/scale);
+    l.children[0].style.width=pct*92+'%';
+    l.children[1].textContent=(s.phase==='finished'&&i<3?medal[i]+' ':'')+p.name;
+    l.children[2].style.left=`calc(${pct*92}% - 0px)`;
+    l.children[3].textContent=p.count});
+  const pd=$('podium');pd.style.display=s.phase==='finished'?'flex':'none';
+  if(s.phase==='finished')pd.innerHTML=s.top.slice(0,3).map((p,i)=>`<div class="pod">${medal[i]}<b>${p.name}</b><span>${p.count} 次 · 请出示手机上的号码</span></div>`).join('');
+};
+</script></body></html>
